@@ -85,38 +85,28 @@ void Server::closeServer() {
     std::cout << "Server closed properly." << std::endl;
 }
 
-void Server::broadcastMessage(int sender, const char *message) {
-    lock_guard<mutex> lock(mtx);
-
-    for (int client: connectedClients) {
-        if (client != sender) {
-            if (send(client, message, strlen(message), 0) == -1)
-                perror("Failed to send message to the client");
-            std::cout << "Send message to "<< client << std::endl;
-        }
-    }
-    std::cout << "End of the broadcasting" << std::endl;
-}
-
 void Server::handleClient(int clientFd) {
+    int cmd = 0;
     string message;
-    char buffer[1024] = {0};
     std::string welcomeMessage = "Welcome " + setupPseudo(clientFd) + "!\n";
     send(clientFd, welcomeMessage.c_str(), welcomeMessage.size(), 0);
 
     while (true) {
-        message = receive(clientFd, buffer);
+        message = receive(clientFd);
         if (message.empty()) continue;
-
-        if (serverCommand(message, clientFd) == 1) continue;
+        if (message == "SVR:DISCONNECTED")
+            break;
+        cmd = serverCommand(message, clientFd);
+        if (cmd == DISCONNECT)
+            break;
+        if (cmd != UNKNOWN) continue;
 
         std::cout << "Message {" << message << "} received from the client fd "<< clientFd << std::endl;
         message += '\n';
         broadcastMessage(clientFd, message.c_str());
-        memset(buffer, 0, sizeof(buffer));
         message.clear();
     }
-//    disconnectClient(clientFd);
+    disconnectClient(clientFd);
 }
 
 std::string Server::setupPseudo(int clientFd) {
@@ -141,7 +131,7 @@ std::string Server::setupPseudo(int clientFd) {
     return pseudo;
 }
 
-int Server::serverCommand(const string& cmd, int client) {
+Server::cmd Server::serverCommand(const string& cmd, int client) {
     if (cmd == "SVR:whoIsConnected") {
         std::cout << "Client want to know who is connected" << std::endl;
 
@@ -153,48 +143,67 @@ int Server::serverCommand(const string& cmd, int client) {
                 whoIsConnectedList += connected.second + "\n";
         }
         send(client, whoIsConnectedList.c_str(), whoIsConnectedList.size(), 0);
-        return 1;
+        return CONNECTED;
     }
     if (cmd == "SVR:disconnect") {
-        std::cout << "Client " << clientPseudo[client] << " requested to disconnect" << std::endl;
-        disconnectClient(client);
-        return 1;
+        std::cout << "Client "<< client << "want to disconnect" << std::endl;
+        return DISCONNECT;
     }
-    return 0;
+    return UNKNOWN;
 }
 
-string Server::receive(int clientFd, char *buffer) {
+string Server::receive(int clientFd) {
+    char buffer[1024] = {0};
     ssize_t rdNumber = read(clientFd, buffer, 1023);
 
     if (rdNumber == -1) {
         perror("Error reading from client");
-        memset(buffer, 0, rdNumber);
         return "";
     }
-    if (rdNumber <= 0) {
-        std::cout << "Client nb " << clientFd << " disconnected" << std::endl;
-        string msgServer = "The client " + clientPseudo[clientFd] + " has disconnected.\n";
-        broadcastMessage(-1, msgServer.c_str());
-        memset(buffer, 0, rdNumber);
-        return "";
-    }
+    if (rdNumber == 0)
+        return "SVR:DISCONNECTED";
     buffer[rdNumber] = '\0';
     string message(buffer);
     message.erase(std::remove(message.begin(), message.end(), '\n'), message.end());
     message.erase(std::remove(message.begin(), message.end(), '\r'), message.end());
-
+    memset(buffer, 0, sizeof(buffer));
     return message;
 }
 
 void Server::disconnectClient(int clientFd) {
+    std::string msgServer = "The client ";
     {
         lock_guard<mutex> lock(mtx);
+        std::cout << "Disconnection of client " << clientFd << " in progress..." << std::endl;
 
-        connectedClients.erase(remove(connectedClients.begin(), connectedClients.end(), clientFd),
-                               connectedClients.end());
-        string msgServer = "The client " + clientPseudo[clientFd] + " has disconnected.\n";
-        broadcastMessage(-1, msgServer.c_str());
-        clientPseudo.erase(clientFd);
+        std::cout << "Connected client size avant = " << connectedClients.size() << std::endl;
+
+        auto it = std::find(connectedClients.begin(), connectedClients.end(), clientFd);
+        if (it != connectedClients.end()) {
+            connectedClients.erase(it);
+        }
+        if (clientPseudo.find(clientFd) != clientPseudo.end()) {
+            msgServer += clientPseudo[clientFd] + " has disconnected.\n";
+            clientPseudo.erase(clientFd);
+            std::cout << "Client pseudo erased." << std::endl;
+
+        }
         close(clientFd);
     }
+    if (!connectedClients.empty()) {
+        broadcastMessage(-1, msgServer.c_str());
+    }
+}
+
+void Server::broadcastMessage(int sender, const char *message) {
+    lock_guard<mutex> lock(mtx);
+
+    for (int client: connectedClients) {
+        if (client != sender) {
+            if (send(client, message, strlen(message), 0) == -1)
+                perror("Failed to send message to the client");
+            std::cout << "Send message to "<< client << std::endl;
+        }
+    }
+    std::cout << "End of the broadcasting" << std::endl;
 }
