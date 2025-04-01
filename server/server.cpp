@@ -1,3 +1,4 @@
+#include <iomanip>
 #include "include/server.hpp"
 
 Server* Server::instance = nullptr;
@@ -110,7 +111,6 @@ void Server::handleClient(int clientFd) {
         if (cmd != CMD::UNKNOWN) continue;
 
         std::cout << "Message {" << message << "} received from the client fd "<< clientFd << std::endl;
-        message += '\n';
         broadcastMessage(clientFd, message.c_str());
         message.clear();
     }
@@ -209,12 +209,23 @@ void Server::disconnectClient(int clientFd) {
     }
 }
 
+std::string getCurrentTime() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&time);
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%d %H:%M");
+    return oss.str();
+}
+
 void Server::broadcastMessage(int sender, const char *message) {
     lock_guard<mutex> lock(mtx);
 
+    string msgToBdr = "[" + getCurrentTime() + "] " + clientPseudo[sender] + "> " + message + "\n";
     for (int client: connectedClients) {
         if (client != sender) {
-            if (send(client, message, strlen(message), 0) == -1)
+            if (send(client, msgToBdr.c_str(), msgToBdr.size(), 0) == -1)
                 perror("Failed to send message to the client");
             std::cout << "Send message to "<< client << std::endl;
         }
