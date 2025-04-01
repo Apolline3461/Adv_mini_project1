@@ -2,7 +2,8 @@
 #include "include/server.hpp"
 
 int main() {
-    Server svr;
+    Server *svr = Server::getInstance();
 
-    svr.run();
+    svr->run();
+    return 0;
 }

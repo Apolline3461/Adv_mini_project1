@@ -1,15 +1,24 @@
 #include "include/server.hpp"
 
 Server* Server::instance = nullptr;
+mutex Server::instanceMutex;
+
+Server* Server::getInstance() {
+    lock_guard<mutex> lock(instanceMutex);
+    if (instance == nullptr) {
+        instance = new Server();
+    }
+    return instance;
+}
 
 Server::Server() {
-    instance = this;
     setupSignalHeaders();
     setupServer();
 }
 
 Server::~Server() {
     closeServer();
+    instance = nullptr;
 }
 
 void Server::setupSignalHeaders() {
@@ -86,7 +95,7 @@ void Server::closeServer() {
 }
 
 void Server::handleClient(int clientFd) {
-    int cmd = 0;
+    CMD cmd;
     string message;
     std::string welcomeMessage = "Welcome " + setupPseudo(clientFd) + "!\n";
     send(clientFd, welcomeMessage.c_str(), welcomeMessage.size(), 0);
@@ -94,12 +103,11 @@ void Server::handleClient(int clientFd) {
     while (true) {
         message = receive(clientFd);
         if (message.empty()) continue;
-        if (message == "SVR:DISCONNECTED")
-            break;
+        if (message == "SVR:DISCONNECTED") break;
         cmd = serverCommand(message, clientFd);
-        if (cmd == DISCONNECT)
-            break;
-        if (cmd != UNKNOWN) continue;
+        if (cmd == CMD::DISCONNECT) break;
+
+        if (cmd != CMD::UNKNOWN) continue;
 
         std::cout << "Message {" << message << "} received from the client fd "<< clientFd << std::endl;
         message += '\n';
@@ -110,20 +118,26 @@ void Server::handleClient(int clientFd) {
 }
 
 std::string Server::setupPseudo(int clientFd) {
-    char buffer[1024] = {0};
+    char buffer[32] = {0};
 
-    std::string pseudo = "anonymousClient";
-    ssize_t rdNumber = read(clientFd, buffer, sizeof(buffer));
-    if (rdNumber > 0) {
-        buffer[rdNumber] = '\0';
-        if (strlen(buffer) > 0) {
-            pseudo = buffer;
-            pseudo.erase(std::remove(pseudo.begin(), pseudo.end(), '\n'), pseudo.end());
-            pseudo.erase(std::remove(pseudo.begin(), pseudo.end(), '\r'), pseudo.end());
+    ssize_t rdNumber = read(clientFd, buffer, sizeof(buffer) - 1);
+
+    if (rdNumber <= 0) {
+        {
+            lock_guard<mutex> lock(mtx);
+            clientPseudo[clientFd] = "anonymousClient";
         }
-        if (pseudo.empty())
-            pseudo = "anonymousClient";
+        return "anonymousClient";
     }
+    buffer[rdNumber] = '\0';
+    string pseudo(buffer);
+
+    pseudo.erase(std::remove_if(pseudo.begin(), pseudo.end(), [](char c) {
+        return c == '\n' || c == '\r';
+    }), pseudo.end());
+
+    if (pseudo.empty()) pseudo = "anonymousClient";
+
     {
         lock_guard<mutex> lock(mtx);
         clientPseudo[clientFd] = pseudo;
@@ -131,7 +145,7 @@ std::string Server::setupPseudo(int clientFd) {
     return pseudo;
 }
 
-Server::cmd Server::serverCommand(const string& cmd, int client) {
+Server::CMD Server::serverCommand(const string& cmd, int client) {
     if (cmd == "SVR:whoIsConnected") {
         std::cout << "Client want to know who is connected" << std::endl;
 
@@ -143,13 +157,13 @@ Server::cmd Server::serverCommand(const string& cmd, int client) {
                 whoIsConnectedList += connected.second + "\n";
         }
         send(client, whoIsConnectedList.c_str(), whoIsConnectedList.size(), 0);
-        return CONNECTED;
+        return CMD::CONNECTED;
     }
     if (cmd == "SVR:disconnect") {
         std::cout << "Client "<< client << "want to disconnect" << std::endl;
-        return DISCONNECT;
+        return CMD::DISCONNECT;
     }
-    return UNKNOWN;
+    return CMD::UNKNOWN;
 }
 
 string Server::receive(int clientFd) {
