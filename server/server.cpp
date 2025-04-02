@@ -149,7 +149,7 @@ Server::CMD Server::serverCommand(const string& cmd, int client) {
     if (cmd == "SVR:whoIsConnected") {
         std::cout << "Client want to know who is connected" << std::endl;
 
-        string whoIsConnectedList = "Connected clients:\n";
+        string whoIsConnectedList = "FROM SERVER\nConnected clients:\n";
         for (const auto &connected: clientPseudo) {
             if (connected.first == client)
                 whoIsConnectedList += connected.second + " (YOU)\n";
