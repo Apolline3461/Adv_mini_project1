@@ -215,14 +215,14 @@ std::string getCurrentTime() {
     std::tm tm = *std::localtime(&time);
 
     std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d %H:%M");
+    oss << std::put_time(&tm, "%H:%M");
     return oss.str();
 }
 
 void Server::broadcastMessage(int sender, const char *message) {
     lock_guard<mutex> lock(mtx);
 
-    string msgToBdr = "[" + getCurrentTime() + "] " + clientPseudo[sender] + "> " + message + "\n";
+    string msgToBdr = clientPseudo[sender] + " [" + getCurrentTime() + "]: " + message + "\n";
     for (int client: connectedClients) {
         if (client != sender) {
             if (send(client, msgToBdr.c_str(), msgToBdr.size(), 0) == -1)

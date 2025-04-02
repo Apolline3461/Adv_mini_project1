@@ -1,6 +1,7 @@
 #include <QInputDialog>
 #include <QHostAddress>
 #include <QMessageBox>
+#include <QDateTime>
 #include "include/client.hpp"
 
 Client::Client(QWidget *parent) : QWidget(parent) {
@@ -52,7 +53,13 @@ void Client::setupSocket() {
 
 void Client::sendMessage() {
     QString message = lineEdit->text();
+    if (message.isEmpty()) return;
+
     socket->write(message.toUtf8());
+
+    QString time = QDateTime::currentDateTime().toString("HH:mm");
+    textEdit->append("You [" + time + "]: " + message);
+
     lineEdit->clear();
 }
 
