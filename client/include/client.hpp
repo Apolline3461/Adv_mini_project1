@@ -24,10 +24,11 @@ private:
     QLineEdit *lineEdit;
     QTextEdit *textEdit;
     QPushButton *sendButton;
-    QVBoxLayout *layout;
 
     QString username;
     QLabel *logLabel;
+    QTextEdit *commandsAvailable;
 
     void setupSocket();
+    void handleDisconnection();
 };

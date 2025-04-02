@@ -20,27 +20,51 @@ Client::Client(QWidget *parent) : QWidget(parent) {
 
     socket->write(username.toUtf8());
 
+    //left part
     logLabel = new QLabel("Log as: " + username, this);
     lineEdit = new QLineEdit(this);
     textEdit = new QTextEdit(this);
     textEdit->setReadOnly(true);
     sendButton = new QPushButton("Send", this);
 
+    //right part for available commands
+    commandsAvailable = new QTextEdit(this);
+    commandsAvailable->setReadOnly(true);
+    commandsAvailable->setHtml("<b>Available commands:</b><br>"
+                              "SVR:who - List connected users<br>"
+                              "SVR:disconnect - Disconnect from server");
+    commandsAvailable->setStyleSheet("background-color: #E8E8E8; border: 1px solid #ccc; padding: 5px;");
+    commandsAvailable->setStyleSheet("background-color: #E8E8E8; color: #000000; border: 1px solid #ccc; padding: 5px;");
+    commandsAvailable->setMaximumWidth(200);
+
     connect(sendButton, &QPushButton::clicked, this, &Client::sendMessage);
     connect(lineEdit, &QLineEdit::returnPressed, this, &Client::sendMessage);
     connect(socket, &QTcpSocket::readyRead, this, &Client::readMessage);
+    connect(socket, &QTcpSocket::disconnected, this, &Client::handleDisconnection);
 
-    layout = new QVBoxLayout(this);
-    layout->addWidget(logLabel);
-    layout->addWidget(textEdit);
-    layout->addWidget(lineEdit);
-    layout->addWidget(sendButton);
-    setLayout(layout);
+    QHBoxLayout *mainLayout = new QHBoxLayout(this);
+
+    // chat layout
+    QVBoxLayout *chatLayout = new QVBoxLayout();
+    chatLayout->addWidget(logLabel);
+    chatLayout->addWidget(textEdit);
+    chatLayout->addWidget(lineEdit);
+    chatLayout->addWidget(sendButton);
+
+    // add chat layout into the main one and Command as a widget
+    mainLayout->addLayout(chatLayout);
+    mainLayout->addWidget(commandsAvailable);
+
+    setLayout(mainLayout);
 }
 
 Client::~Client() {
-    delete layout;
     socket->close();
+}
+
+void Client::handleDisconnection() {
+    QMessageBox::information(this, "Disconnected", "You have been disconnected from the server.");
+    close();
 }
 
 void Client::setupSocket() {

@@ -146,7 +146,7 @@ std::string Server::setupPseudo(int clientFd) {
 }
 
 Server::CMD Server::serverCommand(const string& cmd, int client) {
-    if (cmd == "SVR:whoIsConnected") {
+    if (cmd == "SVR:who") {
         std::cout << "Client want to know who is connected" << std::endl;
 
         string whoIsConnectedList = "FROM SERVER\nConnected clients:\n";
@@ -202,6 +202,7 @@ void Server::disconnectClient(int clientFd) {
             std::cout << "Client pseudo erased." << std::endl;
 
         }
+        shutdown(clientFd, SHUT_RDWR);
         close(clientFd);
     }
     if (!connectedClients.empty()) {
