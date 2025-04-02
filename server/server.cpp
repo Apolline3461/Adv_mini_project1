@@ -125,9 +125,9 @@ std::string Server::setupPseudo(int clientFd) {
     if (rdNumber <= 0) {
         {
             lock_guard<mutex> lock(mtx);
-            clientPseudo[clientFd] = "anonymousClient";
+            clientPseudo[clientFd] = "anonymous client";
         }
-        return "anonymousClient";
+        return "anonymous client";
     }
     buffer[rdNumber] = '\0';
     string pseudo(buffer);
@@ -136,7 +136,7 @@ std::string Server::setupPseudo(int clientFd) {
         return c == '\n' || c == '\r';
     }), pseudo.end());
 
-    if (pseudo.empty()) pseudo = "anonymousClient";
+    if (pseudo.empty()) pseudo = "anonymous client";
 
     {
         lock_guard<mutex> lock(mtx);

@@ -6,6 +6,7 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QLabel>
 
 class Client : public QWidget {
 Q_OBJECT
@@ -23,6 +24,10 @@ private:
     QLineEdit *lineEdit;
     QTextEdit *textEdit;
     QPushButton *sendButton;
+    QVBoxLayout *layout;
+
+    QString username;
+    QLabel *logLabel;
 
     void setupSocket();
 };
