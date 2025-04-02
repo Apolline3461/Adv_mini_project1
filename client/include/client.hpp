@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QShortcut>
 
 class Client : public QWidget {
 Q_OBJECT
@@ -25,9 +26,12 @@ private:
     QTextEdit *textEdit;
     QPushButton *sendButton;
 
+    QHBoxLayout *mainLayout;
+    QVBoxLayout *chatLayout;
     QString username;
     QLabel *logLabel;
     QTextEdit *commandsAvailable;
+    QShortcut *shortcut;
 
     void setupSocket();
     void handleDisconnection();

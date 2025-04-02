@@ -163,6 +163,22 @@ Server::CMD Server::serverCommand(const string& cmd, int client) {
         std::cout << "Client "<< client << "want to disconnect" << std::endl;
         return CMD::DISCONNECT;
     }
+    if (cmd.rfind("SVR:rename ", 0) == 0) {
+        std::string newPseudo = cmd.substr(11);
+        newPseudo.erase(std::remove(newPseudo.begin(), newPseudo.end(), '\n'), newPseudo.end());
+        newPseudo.erase(std::remove(newPseudo.begin(), newPseudo.end(), '\r'), newPseudo.end());
+
+        if (newPseudo.empty()) {
+            send(client, "Invalid username.\n", 18, 0);
+            return CMD::CONNECTED;
+        }
+
+        lock_guard<mutex> lock(mtx);
+        clientPseudo[client] = newPseudo;
+        string confirmMsg = "Your new username is " + newPseudo + "\n";
+        send(client, confirmMsg.c_str(), confirmMsg.size(), 0);
+        return CMD::RENAME;
+    }
     return CMD::UNKNOWN;
 }
 

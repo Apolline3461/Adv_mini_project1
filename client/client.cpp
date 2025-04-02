@@ -32,20 +32,24 @@ Client::Client(QWidget *parent) : QWidget(parent) {
     commandsAvailable->setReadOnly(true);
     commandsAvailable->setHtml("<b>Available commands:</b><br>"
                               "SVR:who - List connected users<br>"
+                              "SVR:rename $new_pseudo - change your pseudo<br>"
                               "SVR:disconnect - Disconnect from server");
     commandsAvailable->setStyleSheet("background-color: #E8E8E8; border: 1px solid #ccc; padding: 5px;");
     commandsAvailable->setStyleSheet("background-color: #E8E8E8; color: #000000; border: 1px solid #ccc; padding: 5px;");
-    commandsAvailable->setMaximumWidth(200);
+    commandsAvailable->setMaximumWidth(400);
 
     connect(sendButton, &QPushButton::clicked, this, &Client::sendMessage);
     connect(lineEdit, &QLineEdit::returnPressed, this, &Client::sendMessage);
     connect(socket, &QTcpSocket::readyRead, this, &Client::readMessage);
     connect(socket, &QTcpSocket::disconnected, this, &Client::handleDisconnection);
 
-    QHBoxLayout *mainLayout = new QHBoxLayout(this);
+    shortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    connect(shortcut, &QShortcut::activated, this, &Client::close);
+
+    mainLayout = new QHBoxLayout(this);
 
     // chat layout
-    QVBoxLayout *chatLayout = new QVBoxLayout();
+    chatLayout = new QVBoxLayout();
     chatLayout->addWidget(logLabel);
     chatLayout->addWidget(textEdit);
     chatLayout->addWidget(lineEdit);
@@ -92,6 +96,17 @@ void Client::sendMessage() {
 
 void Client::readMessage() {
     QString message = socket->readAll();
+
+    if (message.startsWith("Your new username is ")) {
+        username = message.mid(21).trimmed();
+        logLabel->setText("Log as: " + username);
+        textEdit->append("<span style='color:green;'>Your name has been updated to: <b>" + username + "</b></span>");
+        return;
+    }
+    if (message.startsWith("Invalid username.\n")) {
+        textEdit->append("<span style='color:red;'><b>Rename failed</b> ");
+        return;
+    }
 
     if (message.startsWith("FROM SERVER")) {
         QStringList parts = message.split("\n", Qt::SkipEmptyParts);

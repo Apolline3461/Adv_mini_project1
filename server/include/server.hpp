@@ -42,7 +42,8 @@ private:
     enum class CMD {
         UNKNOWN,
         DISCONNECT,
-        CONNECTED
+        CONNECTED,
+        RENAME
     };
 
     Server();
