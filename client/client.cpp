@@ -124,9 +124,14 @@ void Client::readMessage() {
         QString sender = regex.cap(1);
         QString time = regex.cap(2);
         QString content = regex.cap(3);
+        QString color;
+        if (sender.startsWith("SERVER"))
+            color = "#FFD700";
+        else
+            color = "#1E90FF";
 
-        QString customString = QString("<span style='color:#1E90FF;'><b>%1 [%2]:</b></span> %3")
-                .arg(sender, time, content);
+        QString customString = QString("<span style='color:%1;'><b>%2 [%3]:</b></span> %4")
+                .arg(color, sender, time, content);
         textEdit->append(customString);
     } else {
         textEdit->append(message);

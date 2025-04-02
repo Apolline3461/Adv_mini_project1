@@ -1,15 +1,20 @@
 #include <iomanip>
 #include "include/server.hpp"
 
-Server* Server::instance = nullptr;
+std::unique_ptr<Server> Server::instance = nullptr;
 mutex Server::instanceMutex;
 
 Server* Server::getInstance() {
     lock_guard<mutex> lock(instanceMutex);
-    if (instance == nullptr) {
-        instance = new Server();
+    if (!instance) {
+        instance = std::unique_ptr<Server>(new Server());
     }
-    return instance;
+    return instance.get();
+}
+
+void Server::deleteInstance() {
+    std::lock_guard<std::mutex> lock(instanceMutex);
+    instance.reset();
 }
 
 Server::Server() {
@@ -19,7 +24,21 @@ Server::Server() {
 
 Server::~Server() {
     closeServer();
-    instance = nullptr;
+}
+
+void Server::signalHandler(int signum) {
+    std::cout << "\nStopping server..." << std::endl;
+    Server::deleteInstance();
+    exit(signum);
+}
+
+void Server::closeServer() {
+    std::lock_guard<std::mutex> lock(mtx);
+    for (int client : connectedClients) {
+        close(client);
+    }
+    close(serverFd);
+    std::cout << "Server closed properly." << std::endl;
 }
 
 void Server::setupSignalHeaders() {
@@ -79,22 +98,6 @@ void Server::run() {
     }
 }
 
-void Server::signalHandler(int signum) {
-    std::cout << "\nStopping server..." << std::endl;
-    if (instance)
-        instance->closeServer();
-    exit(signum);
-}
-
-void Server::closeServer() {
-    std::lock_guard<std::mutex> lock(mtx);
-    for (int client : connectedClients) {
-        close(client);
-    }
-    close(serverFd);
-    std::cout << "Server closed properly." << std::endl;
-}
-
 void Server::handleClient(int clientFd) {
     CMD cmd;
     string message;
@@ -123,10 +126,8 @@ std::string Server::setupPseudo(int clientFd) {
     ssize_t rdNumber = read(clientFd, buffer, sizeof(buffer) - 1);
 
     if (rdNumber <= 0) {
-        {
-            lock_guard<mutex> lock(mtx);
-            clientPseudo[clientFd] = "anonymous client";
-        }
+        lock_guard<mutex> lock(mtx);
+        clientPseudo[clientFd] = "anonymous client";
         return "anonymous client";
     }
     buffer[rdNumber] = '\0';
@@ -239,7 +240,13 @@ std::string getCurrentTime() {
 void Server::broadcastMessage(int sender, const char *message) {
     lock_guard<mutex> lock(mtx);
 
-    string msgToBdr = clientPseudo[sender] + " [" + getCurrentTime() + "]: " + message + "\n";
+    string senderName;
+    if (sender == -1)
+        senderName = "SERVER";
+    else
+        senderName = clientPseudo[sender];
+
+    string msgToBdr = senderName + " [" + getCurrentTime() + "]: " + message + "\n";
     for (int client: connectedClients) {
         if (client != sender) {
             if (send(client, msgToBdr.c_str(), msgToBdr.size(), 0) == -1)

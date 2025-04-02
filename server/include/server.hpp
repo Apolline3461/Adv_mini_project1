@@ -23,11 +23,14 @@ public:
     Server& operator=(const Server&) = delete;
 
     static Server* getInstance();
+    static void deleteInstance();
+
     void run();
+
     ~Server();
 
 private:
-    static Server* instance;
+    static std::unique_ptr<Server> instance;
     static mutex instanceMutex;
 
     mutex mtx;
@@ -47,6 +50,7 @@ private:
     };
 
     Server();
+
     void setupServer();
     static void setupSignalHeaders();
     static void signalHandler(int signum);
