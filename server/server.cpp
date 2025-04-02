@@ -1,8 +1,9 @@
 #include <iomanip>
 #include "include/server.hpp"
 
+//using a singleton for the Server to ensure that we will have only one server
 std::unique_ptr<Server> Server::instance = nullptr;
-mutex Server::instanceMutex;
+mutex Server::instanceMutex; // its mutex
 
 Server* Server::getInstance() {
     lock_guard<mutex> lock(instanceMutex);
@@ -94,7 +95,7 @@ void Server::run() {
             lock_guard<mutex> lock(mtx);
             connectedClients.push_back(clientFd);
         }
-        thread(&Server::handleClient, this, clientFd).detach();
+        thread(&Server::handleClient, this, clientFd).detach(); // Creates a separate thread for the client
     }
 }
 
@@ -133,6 +134,7 @@ std::string Server::setupPseudo(int clientFd) {
     buffer[rdNumber] = '\0';
     string pseudo(buffer);
 
+    // Removes newline characters from the pseudo before to store it in the clientPseudo list
     pseudo.erase(std::remove_if(pseudo.begin(), pseudo.end(), [](char c) {
         return c == '\n' || c == '\r';
     }), pseudo.end());
